@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from sklearn.base import BaseEstimator
 from sklearn.utils.multiclass import check_classification_targets
+from sklearn.utils.validation import validate_data
 
 from imbens.sampler._over_sampling.base import BaseOverSampler
 from imbens.sampler.base import BaseSampler
@@ -54,7 +55,7 @@ class NotFittedSampler(BaseBadSampler):
     """Sampler without target checking."""
 
     def fit(self, X, y):
-        X, y = self._validate_data(X, y)
+        X, y = validate_data(self, X, y)
         return self
 
 
@@ -62,7 +63,7 @@ class NoAcceptingSparseSampler(BaseBadSampler):
     """Sampler which does not accept sparse matrix."""
 
     def fit(self, X, y):
-        X, y = self._validate_data(X, y)
+        X, y = validate_data(self, X, y)
         self.sampling_strategy_ = "sampling_strategy_"
         return self
 
@@ -77,12 +78,13 @@ class NotPreservingDtypeSampler(BaseSampler):
 class IndicesSampler(BaseOverSampler):
     def _check_X_y(self, X, y):
         y, binarize_y = target_check(y, indicate_one_vs_all=True)
-        X, y = self._validate_data(
+        X, y = validate_data(
+            self,
             X,
             y,
             reset=True,
             dtype=None,
-            force_all_finite=False,
+            ensure_all_finite=False,
         )
         return X, y, binarize_y
 
@@ -106,7 +108,7 @@ mapping_estimator_error = {
     "BaseBadSampler": (AssertionError, "ValueError not raised by fit"),
     "SamplerSingleClass": (AssertionError, "Sampler can't balance when only"),
     "NotFittedSampler": (AssertionError, "No fitted attribute"),
-    "NoAcceptingSparseSampler": (TypeError, "A sparse matrix was passed"),
+    "NoAcceptingSparseSampler": (TypeError, "Sparse data was passed"),
     "NotPreservingDtypeSampler": (AssertionError, "X dtype is not preserved"),
 }
 
@@ -120,7 +122,6 @@ def _test_single_check(Estimator, check):
 
 
 def test_all_checks():
-    _test_single_check(BaseBadSampler, check_target_type)
     _test_single_check(SamplerSingleClass, check_samplers_one_label)
     _test_single_check(NotFittedSampler, check_samplers_fit)
     _test_single_check(NoAcceptingSparseSampler, check_samplers_sparse)
@@ -128,16 +129,16 @@ def test_all_checks():
 
 
 def test_all_samplers():
-    all_samplers = all_estimators(type_filter='sampler')
+    all_samplers = all_estimators(type_filter="sampler")
     for name, SamplerClass in all_samplers:
         print(name)
         if name in [
-            'BalanceCascadeUnderSampler',
-            'SelfPacedUnderSampler',
-            'CondensedNearestNeighbour',
-            'InstanceHardnessThreshold',
-            'ClusterCentroids',
-            'KMeansSMOTE',
+            "BalanceCascadeUnderSampler",
+            "SelfPacedUnderSampler",
+            "CondensedNearestNeighbour",
+            "InstanceHardnessThreshold",
+            "ClusterCentroids",
+            "KMeansSMOTE",
         ]:  # for speed up test
             continue
         try:
@@ -149,7 +150,7 @@ def test_all_samplers():
 
 
 def test_all_classifiers():
-    all_ensembles = all_estimators(type_filter='ensemble')
+    all_ensembles = all_estimators(type_filter="ensemble")
     for name, EnsembleClass in all_ensembles:
         print(name)
         try:

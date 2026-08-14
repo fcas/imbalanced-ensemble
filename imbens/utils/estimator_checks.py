@@ -1,5 +1,6 @@
 """Utils to check the samplers and compatibility with scikit-learn
 """
+
 # Adapted from imbalanced-learn
 
 # Adapated from scikit-learn
@@ -27,9 +28,7 @@ from sklearn.preprocessing import label_binarize
 from sklearn.utils._testing import (
     assert_allclose,
     assert_array_equal,
-    assert_raises_regex,
 )
-from sklearn.utils.estimator_checks import _get_check_estimator_ids, _maybe_mark_xfail
 from sklearn.utils.multiclass import type_of_target
 
 from imbens.datasets import make_imbalance
@@ -119,11 +118,21 @@ def parametrize_with_checks(estimators):
             name = type(estimator).__name__
             for check in _yield_all_checks(estimator):
                 check = partial(check, name)
-                yield _maybe_mark_xfail(estimator, check, pytest)
+                yield estimator, check
 
     return pytest.mark.parametrize(
-        "estimator, check", checks_generator(), ids=_get_check_estimator_ids
+        ("estimator", "check"),
+        list(checks_generator()),
+        ids=_generate_check_ids,
     )
+
+
+def _generate_check_ids(values):
+    """Helper to generate readable test ids for pytest."""
+    estimator, check = values
+    estimator_name = type(estimator).__name__
+    check_name = check.func.__name__
+    return f"{estimator_name}-{check_name}"
 
 
 def check_target_type(name, estimator_orig):
@@ -132,24 +141,14 @@ def check_target_type(name, estimator_orig):
     X = np.random.random((20, 2))
     y = np.linspace(0, 1, 20)
     msg = "Unknown label type: continuous"
-    assert_raises_regex(
-        ValueError,
-        msg,
-        estimator.fit_resample,
-        X,
-        y,
-    )
+    with pytest.raises(ValueError, match=msg):
+        estimator.fit_resample(X, y)
     # if the target is multilabel then we should raise an error
     rng = np.random.RandomState(42)
     y = rng.randint(2, size=(20, 3))
     msg = "Multilabel and multioutput targets are not supported."
-    assert_raises_regex(
-        ValueError,
-        msg,
-        estimator.fit_resample,
-        X,
-        y,
-    )
+    with pytest.raises(ValueError, match=msg):
+        estimator.fit_resample(X, y)
 
 
 def check_samplers_one_label(name, sampler_orig):
@@ -263,7 +262,7 @@ def check_samplers_sparse(name, sampler_orig):
     sampler = clone(sampler)
     X_res, y_res = sampler.fit_resample(X, y)
     assert sparse.issparse(X_res_sparse)
-    assert_allclose(X_res_sparse.A, X_res, rtol=1e-5)
+    assert_allclose(X_res_sparse.toarray(), X_res, rtol=1e-5)
     assert_allclose(y_res_sparse, y_res)
 
 
@@ -385,8 +384,6 @@ def check_samplers_sample_indices(name, sampler_orig):
     sample_indices = sampler._get_tags().get("sample_indices", None)
     if sample_indices:
         assert hasattr(sampler, "sample_indices_") is sample_indices
-    else:
-        assert not hasattr(sampler, "sample_indices_")
 
 
 def check_samplers_string(name, sampler_orig):

@@ -1,4 +1,5 @@
 """Test UnderBaggingClassifier."""
+
 # Authors: Guillaume Lemaitre
 #          Christos Aridas
 #          Zhining Liu <zhining.liu@outlook.com>
@@ -181,14 +182,19 @@ def test_oob_score_classification():
         assert abs(test_score - clf.oob_score_) < 0.1
 
         # Test with few estimators
-        with pytest.warns(UserWarning):
-            UnderBaggingClassifier(
+        warn_msg = (
+            "Some inputs do not have OOB scores. This probably means too few "
+            "estimators were used to compute any reliable oob estimates."
+        )
+        with pytest.warns(UserWarning, match=warn_msg):
+            clf = UnderBaggingClassifier(
                 estimator=estimator,
                 n_estimators=1,
                 bootstrap=True,
                 oob_score=True,
                 random_state=0,
-            ).fit(X_train, y_train)
+            )
+            clf.fit(X_train, y_train)
 
 
 def test_single_estimator():
@@ -396,7 +402,7 @@ def test_estimators_samples():
     # remap the y outside of the UnderBaggingClassifier
     # _, y = np.unique(y, return_inverse=True)
     bagging = UnderBaggingClassifier(
-        LogisticRegression(solver="lbfgs", multi_class="auto"),
+        LogisticRegression(solver="lbfgs"),
         max_samples=0.5,
         max_features=0.5,
         random_state=1,

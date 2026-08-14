@@ -1,4 +1,5 @@
 """Test EasyEnsembleClassifier."""
+
 # Authors: Guillaume Lemaitre
 #          Christos Aridas
 #          Zhining Liu <zhining.liu@outlook.com>
@@ -30,14 +31,14 @@ from imbens.sampler._under_sampling import RandomUnderSampler
 
 sklearn_version = parse_version(sklearn.__version__)
 iris = load_iris()
-estimator_default = AdaBoostClassifier(n_estimators=10)
+estimator_default = AdaBoostClassifier(n_estimators=10, algorithm="SAMME")
 
 
 @pytest.mark.parametrize(
     "estimator",
     [
         None,
-        AdaBoostClassifier(n_estimators=10),
+        AdaBoostClassifier(n_estimators=10, algorithm="SAMME"),
         DummyClassifier(strategy="prior"),
         Perceptron(max_iter=1000, tol=1e-3),
         DecisionTreeClassifier(),
@@ -72,7 +73,7 @@ def test_easy_ensemble_classifier(estimator, params):
             estimator=estimator, random_state=0, **params
         ).fit(X_train, y_train)
     else:
-        with pytest.warns(UserWarning, match='You are trying to set'):
+        with pytest.warns(UserWarning, match="You are trying to set"):
             easyens = EasyEnsembleClassifier(
                 estimator=estimator, random_state=0, **params
             ).fit(X_train, y_train)
@@ -97,7 +98,7 @@ def test_bootstrap_samples():
     estimator = DecisionTreeClassifier().fit(X_train, y_train)
 
     # with bootstrap, trees are no longer perfect on the training set
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         ensemble = EasyEnsembleClassifier(
             estimator=DecisionTreeClassifier(),
             max_samples=1.0,
@@ -118,7 +119,7 @@ def test_bootstrap_features():
     )
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
 
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         ensemble = EasyEnsembleClassifier(
             estimator=DecisionTreeClassifier(),
             max_features=1.0,
@@ -129,7 +130,7 @@ def test_bootstrap_features():
     for features in ensemble.estimators_features_:
         assert np.unique(features).shape[0] == X.shape[1]
 
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         ensemble = EasyEnsembleClassifier(
             estimator=DecisionTreeClassifier(),
             max_features=1.0,
@@ -155,7 +156,7 @@ def test_probability():
 
     with np.errstate(divide="ignore", invalid="ignore"):
         # Normal case
-        with pytest.warns(UserWarning, match='You are trying to set'):
+        with pytest.warns(UserWarning, match="You are trying to set"):
             ensemble = EasyEnsembleClassifier(
                 estimator=DecisionTreeClassifier(), random_state=0
             ).fit(X_train, y_train)
@@ -182,7 +183,7 @@ def test_oob_score_classification():
     )
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
 
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         for estimator in [DecisionTreeClassifier(), SVC(gamma="scale")]:
             clf = EasyEnsembleClassifier(
                 estimator=estimator,
@@ -197,14 +198,19 @@ def test_oob_score_classification():
             assert abs(test_score - clf.oob_score_) < 0.1
 
             # Test with few estimators
-            with pytest.warns(UserWarning):
-                EasyEnsembleClassifier(
+            warn_msg = (
+                "Some inputs do not have OOB scores. This probably means too few "
+                "estimators were used to compute any reliable oob estimates."
+            )
+            with pytest.warns(UserWarning, match=warn_msg):
+                clf = EasyEnsembleClassifier(
                     estimator=estimator,
                     n_estimators=1,
                     bootstrap=True,
                     oob_score=True,
                     random_state=0,
-                ).fit(X_train, y_train)
+                )
+                clf.fit(X_train, y_train)
 
 
 def test_single_estimator():
@@ -217,7 +223,7 @@ def test_single_estimator():
     )
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
 
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         clf1 = EasyEnsembleClassifier(
             estimator=KNeighborsClassifier(),
             n_estimators=1,
@@ -243,7 +249,7 @@ def test_gridsearch():
     # Grid search with scoring based on decision_function
     parameters = {"n_estimators": (1, 2), "estimator__C": (1, 2)}
 
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         GridSearchCV(
             EasyEnsembleClassifier(SVC(gamma="scale")),
             parameters,
@@ -268,14 +274,14 @@ def test_estimator():
 
     assert isinstance(ensemble.estimator_.steps[-1][1], AdaBoostClassifier)
 
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         ensemble = EasyEnsembleClassifier(
             DecisionTreeClassifier(), n_jobs=3, random_state=0
         ).fit(X_train, y_train)
 
     assert isinstance(ensemble.estimator_.steps[-1][1], DecisionTreeClassifier)
 
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         ensemble = EasyEnsembleClassifier(
             Perceptron(max_iter=1000, tol=1e-3), n_jobs=3, random_state=0
         ).fit(X_train, y_train)
@@ -290,7 +296,7 @@ def test_bagging_with_pipeline():
         sampling_strategy={0: 20, 1: 25, 2: 50},
         random_state=0,
     )
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         estimator = EasyEnsembleClassifier(
             make_pipeline(SelectKBest(k=1), DecisionTreeClassifier()),
             max_features=2,
@@ -398,7 +404,7 @@ def test_oob_score_consistency():
     # Make sure OOB scores are identical when random_state, estimator, and
     # training data are fixed and fitting is done twice
     X, y = make_hastie_10_2(n_samples=200, random_state=1)
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         easyens = EasyEnsembleClassifier(
             KNeighborsClassifier(),
             max_samples=0.5,
@@ -417,9 +423,9 @@ def test_estimators_samples():
 
     # remap the y outside of the EasyEnsembleClassifier
     # _, y = np.unique(y, return_inverse=True)
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         easyens = EasyEnsembleClassifier(
-            LogisticRegression(solver="lbfgs", multi_class="auto"),
+            LogisticRegression(solver="lbfgs"),
             max_samples=0.5,
             max_features=0.5,
             random_state=1,
@@ -458,7 +464,7 @@ def test_max_samples_consistency():
     # when valid integer max_samples supplied by user
     max_samples = 100
     X, y = make_hastie_10_2(n_samples=2 * max_samples, random_state=1)
-    with pytest.warns(UserWarning, match='You are trying to set'):
+    with pytest.warns(UserWarning, match="You are trying to set"):
         easyens = EasyEnsembleClassifier(
             KNeighborsClassifier(),
             max_samples=max_samples,
